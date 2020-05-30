@@ -10,7 +10,7 @@ if ($_GET["saveDimensions"])
 
 <h2>Open slideviewer</h2>
 
-<?php if (file_exists("result.xml")){ ?>
+<?php if (file_exists("result.xml")): ?>
 <form action="/slideviewer/" method="get" id="frm">
   <label>Native slide size:</label>
   <input type='number' name='width' value='<?=(get_setting("slideviewer_x") ?: "1920")?>' style='width: 70px'/> x
@@ -43,9 +43,9 @@ if ($_GET["saveDimensions"])
 <li>T - reload stylesheet without changing the slide</li>
 <li>SPACE - re-read result.xml (and quit partyslide mode)</li>
 </ul>
-<?}else{ ?>
+<?php else: ?>
   <p>You haven't set a slide mode yet; go <a href="beamer.php">here</a> to do so.</p>
-<?} ?>
+<?php endif; ?>
 
 <script type="text/javascript">
 <!--
