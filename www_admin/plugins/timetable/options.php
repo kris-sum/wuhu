@@ -1,10 +1,11 @@
 <?php
 if (!defined("PLUGINOPTIONS")) exit();
 
-$formdata = array(
+$cms = new CMSGen();
+$cms->formdata = array(
   "table" => "timetable",
   "key" => "id",
-  "processingfile" => $_SERVER["REQUEST_URI"],
+  "processingfile" => "pluginoptions.php?plugin=timetable",
   "class" => "minuswiki",
   "order" => "date",
   "fields" => array(
@@ -50,28 +51,30 @@ $formdata = array(
   ),
 );
 
-if ($_POST["export"])
+if (@$_POST["export"])
 {
   timetable_export();
 }
-else if ($_POST["timetable_perpage"])
+else if (@$_POST["timetable_perpage"])
 {
   update_setting("timetable_perpage",(int)$_POST["timetable_perpage"]);
 }
 else if ($_POST)
-  cmsProcessPost($formdata);
-
-if ($_GET["new"])
 {
-  cmsRenderInsertForm($formdata);
+  $cms->ProcessPost();
 }
-else if ($_GET["edit"]) 
+
+if (@$_GET["new"])
 {
-  cmsRenderEditForm($formdata,$_GET["edit"]);
+  $cms->RenderInsertForm();
+}
+else if (@$_GET["edit"]) 
+{
+  $cms->RenderEditForm($_GET["edit"]);
 } 
-else if ($_GET["del"])
+else if (@$_GET["del"])
 {
-  cmsRenderDeleteForm($formdata,$_GET["del"]);
+  $cms->RenderDeleteForm($_GET["del"]);
 }
 else
 {
@@ -94,13 +97,13 @@ else
     printf("  <td>%s</td>\n",$ev->date);
     printf("  <td>%s</td>\n",$ev->type);
     printf("  <td>%s</td>\n",$ev->event);
-    if ($ev->id)
+    if (@$ev->id)
     {
       printf("  <td><a href='?plugin=timetable&amp;edit=%d'>edit</a> / <a href='?plugin=timetable&amp;del=%d'>del</a></td>\n",$ev->id,$ev->id);
     }
-    else if ($ev->compoID)
+    else if (@$ev->compoID)
     {
-      printf("  <td><a href='compos.php?id=%d'>edit</a> / <a href='compos.php?id=%d'>organize</a></td>\n",$ev->compoID,$ev->compoID);
+      printf("  <td><a href='compos.php?id=%d'>edit</a> / <a href='compos_entry_list.php?id=%d'>organize</a></td>\n",$ev->compoID,$ev->compoID);
     }
     else
     {
@@ -110,16 +113,16 @@ else
   }
   echo "  <td colspan='5'><a href='?plugin=timetable&amp;new=add'>Add new item</a></td>\n";
   echo "</table>\n";
-//  cmsRenderListGrid($formdata);
+//  $cms->RenderListGrid($formdata);
 ?>
 <h2>Countdown viewer</h2>
 <form action="plugins/timetable/viewer.php" method="get">
 
-  <label for='twitter_querystring'>Number of previous events shown:</label>
+  <label>Number of previous events shown:</label>
   <input type='number' name='before' value='2'/>
 
-  <label for='twitter_querystring'>Number of upcoming events:</label>
-  <input type='number' name='before' value='4'/>
+  <label>Number of upcoming events:</label>
+  <input type='number' name='after' value='4'/>
   
   <input type="submit" value="Open"/>
 </form>

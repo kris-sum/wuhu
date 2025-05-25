@@ -1,9 +1,10 @@
 <?php
 include_once("../../database.inc.php");
 
-function adminer_object()
+function adminer_object() 
 {
-  class AdminerSoftware extends Adminer {
+  class AdminerSoftware extends Adminer\Adminer {
+    function __construct() { Adminer\set_password("server", SQL_HOST, SQL_USERNAME, SQL_PASSWORD); }
     function name() { return "Wuhu Adminer Plugin"; }
     function credentials() { return array(SQL_HOST, SQL_USERNAME, SQL_PASSWORD); }
     function database() { return SQL_DATABASE; }
@@ -13,6 +14,7 @@ function adminer_object()
   return new AdminerSoftware;
 }
 
+$_GET["server"] = SQL_HOST;
 $_GET["username"] = SQL_USERNAME;
 $_GET["db"] = SQL_DATABASE;
 

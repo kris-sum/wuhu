@@ -6,7 +6,7 @@ http://wuhu.function.hu
 
 ### Server side:
 * Apache 2.x (Not tested with other servers but it should probably work fine)
-* PHP 5.x (works fine with 7.x)
+* PHP 5.x (works fine with 7.x, should mostly work with 8.2)
 * MySQL 5.x (works fine with MariaDB)
 ### Beamer side: 
 * HTML5 compatible browser (Chrome/Firefox preferred)
@@ -51,7 +51,7 @@ Both beam systems rely on simple keypresses for operation.
 * END - last slide
 * S - partyslide rotation mode
 * T - reload stylesheet (without changing the slide contents) 
-* SPACE - re-read result.xml (and quit partyslide mode)
+* SPACE - re-read beamer.data (and quit partyslide mode)
     
 This last key essentially means that once you've used the "BEAMER" menu on the admin interface, you must press SPACE to refresh the data inside (and/or switch to another mode).
   

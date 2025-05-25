@@ -8,11 +8,12 @@ if (is_user_logged_in())
 
 run_hook("login_start");
 
-if ($_POST["login"])
+if (@$_POST["login"])
 {
   $_SESSION["logindata"] = NULL;
 
-  $userID = SQLLib::selectRow(sprintf_esc("select id from users where `username`='%s' and `password`='%s'",$_POST["login"],hashPassword($_POST["password"])))->id;
+  $user = SQLLib::selectRow(sprintf_esc("select id from users where `username`='%s' and `password`='%s'",$_POST["login"],hashPassword($_POST["password"])));
+  $userID = $user ? $user->id : 0;
 
   run_hook("login_authenticate",array("userID"=>&$userID));
 
@@ -27,10 +28,10 @@ if ($_POST["login"])
   }
   exit();
 }
-if ($_GET["login"]=="failure")
+if (@$_GET["login"]=="failure")
   echo "<div class='error'>Login failed!</div>";
 ?>
-<form action="<?=build_url("Login")?>" method="post" id='loginForm'>
+<form method="post" id='loginForm'>
 <div>
   <label for="loginusername">Username:</label>
   <input id="loginusername" name="login" type="text" required='yes' />

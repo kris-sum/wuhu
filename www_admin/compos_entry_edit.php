@@ -1,7 +1,25 @@
 <?php
-include_once("bootstrap.inc.php");
+  include_once("bootstrap.inc.php");
 
-  if ($_GET["select"])
+  if (@$_GET["download"])
+  {
+    $entry = SQLLib::selectRow(sprintf_esc("select * from compoentries where id=%d",$_GET["download"]));
+    $dirname = get_compoentry_dir_path($entry);
+    
+    $path = $dirname . $entry->filename;
+    if (($data = @file_get_contents($path)) === false) {
+      include_once("header.inc.php");
+      printf("<div class='error'>Failed to read %s</div>",$path);
+    } else {
+      header("Content-type: application/octet-stream");
+      header("Content-disposition: attachment; filename=\"".basename($entry->filename)."\"");
+      header("Content-length: ".filesize($path));
+      echo $data;
+    }
+    exit();
+  }
+  
+  if (@$_GET["select"])
   {
     $lock = new OpLock();
     $e = SQLLib::selectRow(sprintf_esc("select * from compoentries where id=%d",$_GET["id"]));
@@ -14,7 +32,7 @@ include_once("bootstrap.inc.php");
   }
   include_once("header.inc.php");
 
-  if ($_POST["submit"]=="Move!")
+  if (@$_POST["submit"]=="Move!")
   {
     $lock = new OpLock();
     $e = SQLLib::selectRow(sprintf_esc("select * from compoentries where id=%d",$_POST["id"]));
@@ -41,6 +59,7 @@ include_once("bootstrap.inc.php");
       $n = basename($v);
       rename($oldDir . $n, $newDir . $n);
     }
+    rmdir($oldDir);
 
     $a = array();
     $a["compoID"] = $_POST["targetCompoID"];
@@ -52,7 +71,7 @@ include_once("bootstrap.inc.php");
     $lock = null;
   }
 
-  if ($_POST["submit"]=="Delete!")
+  if (@$_POST["submit"]=="Delete!")
   {
     $lock = new OpLock();
     $entry = SQLLib::selectRow(sprintf_esc("select * from compoentries where id=%d",$_POST["id"]));
@@ -72,15 +91,15 @@ include_once("bootstrap.inc.php");
   }
 
   $id = NULL;
-  if ($_REQUEST["id"])
+  if (@$_REQUEST["id"])
     $id = (int)$_REQUEST["id"];
 
-  if ($_POST["submit"]=="Go!")
+  if (@$_POST["submit"]=="Go!")
   {
     $out = array();
     $data = $_POST;
     $data["id"] = $_REQUEST["id"];
-    $data["compoID"] = $_POST["compo"];
+    $data["compoID"] = @$_POST["compo"];
     $data["localScreenshotFile"] = $_FILES['screenshot']['tmp_name'];
     $data["localFileName"] = $_FILES['entryfile']['tmp_name'];
     $data["originalFileName"] = $_FILES['entryfile']['name'];
@@ -177,7 +196,7 @@ foreach($s as $t) {
       {
         $v = basename($v);
         if ($v == $entry->filename)
-          printf("<li class='selectedfile'><span>%s</span> - %d bytes</li>\n",$v,filesize($dirname . $v));
+          printf("<li class='selectedfile'><span><a href='compos_entry_edit.php?download=%d'>%s</a></span> - %d bytes</li>\n",$entry->id,$v,filesize($dirname . $v));
         else
           printf("<li><span>%s</span> - %d bytes [<a href='compos_entry_edit.php?id=%d&amp;select=%s'>select</a>]</li>\n",
             $v,filesize($dirname . $v),$_GET["id"],_html($v));

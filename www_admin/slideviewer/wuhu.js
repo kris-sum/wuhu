@@ -4,7 +4,7 @@ var WuhuSlideSystem = Class.create({
   {
     $$('.reveal .slides>section').each(function(item){
       var container = item.down("div.container");
-	  if (container) 
+	  if (container)
 	  {
 	    var h = this.revealOptions.height;
 	    var containerHeight = container.getLayout().get("height");
@@ -23,23 +23,15 @@ var WuhuSlideSystem = Class.create({
     this.slideContainer.insert(sec);
     return sec;
   },
-
-  reloadStylesheets:function() {
+  reloadStylesheets:function()
+  {
     var queryString = '?reload=' + new Date().getTime();
     $$('link[rel="stylesheet"]').each(function(item) {
       item.href = item.href.replace(/\?.*|$/, queryString);
     });
   },
-  deleteAllSlides:function()
+  saveCountdownSlideForPIP:function()
   {
-    this.slideContainer.update("");
-  },
-  reloadSlideRotation:function()
-  {
-    var currentURL = null;
-    if (currentSlide = Reveal.getCurrentSlide())
-      currentURL = currentSlide.getAttribute("data-slideurl");
-    
     if (this.options.countdownOverlay)
     {
       var revealContainer = $$(".reveal").first();
@@ -55,7 +47,19 @@ var WuhuSlideSystem = Class.create({
     {
       $$("#pip-countdown").invoke("remove");
     }
+  },
+  deleteAllSlides:function()
+  {
+    this.slideContainer.update("");
+  },
+  reloadSlideRotation:function()
+  {
+    var currentURL = null;
+    if (currentSlide = Reveal.getCurrentSlide())
+      currentURL = currentSlide.getAttribute("data-slideurl");
 
+    this.saveCountdownSlideForPIP();
+  
     $A(this.slides).each(function(slide){
       var sec = this.slideContainer.down("section[data-slideurl='" + slide.url + "']");
       if (sec)
@@ -65,7 +69,7 @@ var WuhuSlideSystem = Class.create({
           // don't touch the slide we're on
           return;
         }
-        
+
         var lastUpdate = parseInt(sec.getAttribute("data-lastUpdate"),10);
         if (slide.lastUpdate == lastUpdate)
         {
@@ -129,9 +133,9 @@ var WuhuSlideSystem = Class.create({
           } break;
       }
     },this);
-    this.revealOptions.loop = true;
-    Reveal.initialize( this.revealOptions );
-
+    this.prizinator = null;
+    Reveal.getConfig().loop = true;
+    Reveal.sync();
     var fixed = false;
     if (currentURL)
     {
@@ -154,23 +158,23 @@ var WuhuSlideSystem = Class.create({
 
   fetchSlideRotation:function()
   {
-    new Ajax.Request("../slides/?allSlides=1",{
+    new Ajax.Request("../slides.php",{
       "method":"GET",
       onException:function(req,ex) { throw ex; },
       onSuccess:(function(transport){
     		if (transport.responseText.length <= 0)
           return;
-        var e = new Element("root").update( transport.responseText );
-    		if (Element.select(e,"slides").length <= 0)
+        var data = transport.responseJSON;
+        if (!data?.slides)
           return;
         this.slides = [];
-        Element.select(e,"slide").each((function(slide){
+        data.slides.each((function(slide){
           var o = {};
-          o.url = slide.innerHTML;
-          o.lastUpdate = slide.getAttribute("lastChanged");
+          o.url = data.root + slide.url;
+          o.lastUpdate = parseInt(slide.lastChanged);
           this.slides.push( o );
         }).bind(this));
-        Reveal.resumeAutoSlide();
+        Reveal.toggleAutoSlide(true);
         this.reloadSlideRotation();
         this.regenerateTransitions();
       }).bind(this)
@@ -180,7 +184,7 @@ var WuhuSlideSystem = Class.create({
   updateCountdownTimer:function()
   {
     var timer = $$(".countdownTimer");
-    
+
     if (!timer.length) return;
 
     // date.now / date.gettime? http://wholemeal.co.nz/blog/2011/09/09/chrome-firefox-javascript-date-differences/
@@ -210,27 +214,31 @@ var WuhuSlideSystem = Class.create({
   },
   fetchSlideEvents:function()
   {
-    new Ajax.Request("../result.xml?" + Math.random(),{
+    new Ajax.Request("../beamer.php?format=json&" + Math.random(),{
       "method":"GET",
       onException:function(req,ex) { throw ex; },
       onSuccess:(function(transport){
-        var e = new Element("root").update( transport.responseText );
+        if (!transport.responseJSON.success || !transport.responseJSON.result)
+        {
+          return;
+        }
+        var result = transport.responseJSON.result;
 
         $$("#pip-countdown").invoke("remove");
         this.deleteAllSlides();
 
         this.prizinator = null;
-        
-        var mode = Element.down(e,"result > mode").innerHTML;
+
+        var mode = result.mode;
         switch(mode)
         {
           case "announcement":
             {
               var sec = this.insertSlide({"class":"announcementSlide"});
               var cont = sec.down("div.container");
-              var text = Element.down(e,"result > announcementtext").innerHTML;
-              var useHTML = Element.down(e,"result > announcementtext").getAttribute("isHTML") == "true";
-              cont.update( useHTML ? text.unescapeHTML() : text.replace(/(?:\r\n|\r|\n)/g, '<br />') );
+              var useHTML = !!result.announcementhtml;
+              var text = useHTML ? result.announcementhtml : result.announcementtext;
+              cont.update( useHTML ? text : text.escapeHTML().replace(/(?:\r\n|\r|\n)/g, '<br />') );
             } break;
           case "compocountdown":
             {
@@ -238,12 +246,12 @@ var WuhuSlideSystem = Class.create({
               var cont = sec.down("div.container");
 
               var openingText = "";
-              if (Element.down(e,"result > componame"))
-                openingText = "The " + Element.down(e,"result > componame").innerHTML + " compo";
-              if (Element.down(e,"result > eventname"))
-                openingText = Element.down(e,"result > eventname").innerHTML;
+              if (result.componame)
+                openingText = "The " + result.componame.escapeHTML() + " compo";
+              if (result.eventname)
+                openingText = result.eventname.escapeHTML();
 
-              var t = Element.down(e,"result > compostart").innerHTML;
+              var t = result.compostart;
               t = t.split(" ").join("T");
 
               this.countdownTimeStamp = parseDate( t );
@@ -256,19 +264,19 @@ var WuhuSlideSystem = Class.create({
             } break;
           case "compodisplay":
             {
-              this.revealOptions.loop = false;
+              Reveal.getConfig().loop = false;
 
               var compoName = "";
               var compoNameFull = "";
-              if (Element.down(e,"result > componame"))
+              if (result.componame)
               {
-                compoName = Element.down(e,"result > componame").innerHTML;
-                compoNameFull = "The " + compoName + " compo";
+                compoName = result.componame.escapeHTML();
+                compoNameFull = "The " + compoName.escapeHTML() + " compo";
               }
-              if (Element.down(e,"result > eventname"))
+              if (result.eventname)
               {
-                compoName = Element.down(e,"result > eventname").innerHTML;
-                compoNameFull = compoName;
+                compoName = result.eventname.escapeHTML();
+                compoNameFull = compoName.escapeHTML();
               }
 
               // slide 1: introduction
@@ -280,15 +288,15 @@ var WuhuSlideSystem = Class.create({
 
               // slide 2..n: entries
 
-              Element.select(e,"result > entries entry").each(function(entry){
+              $A(result.entries).each(function(entry){
                 var sec = this.insertSlide({"class":"compoDisplaySlide entry"});
                 sec.insert( new Element("div",{"class":"eventName"}).update(compoName) );
                 var cont = sec.down("div.container");
                 var fields = ["number","title","author","comment"];
                 fields.each(function(field){
-                  if ( Element.down(entry,field) )
+                  if ( entry[field] )
                   {
-                    var s = Element.down(entry,field).innerHTML;
+                    var s = (entry[field] + "").escapeHTML();
                     if (field == "comment")
                       s = s.replace(/(?:\r\n|\r|\n)/g, '<br />');
                     cont.insert( new Element("div",{"class":field}).update( s ) );
@@ -307,10 +315,10 @@ var WuhuSlideSystem = Class.create({
             } break;
           case "prizegiving":
             {
-              this.revealOptions.loop = false;
+              Reveal.getConfig().loop = false;
 
-              var compoName = Element.down(e,"result > componame").innerHTML;
-              var compoNameFull = "The " + compoName + " compo";
+              var compoName = result.componame.escapeHTML();
+              var compoNameFull = "The " + compoName.escapeHTML() + " compo";
 
               // slide 1: introduction
               var sec = this.insertSlide({"class":"prizegivingSlide intro"});
@@ -319,24 +327,24 @@ var WuhuSlideSystem = Class.create({
               cont.insert( new Element("div",{"class":"eventName"}).update(compoName) );
 
               // slide 2..n: entries
-              if (this.options.newPrizegiving)
+              if (this.options.prizegivingStyle == 'bars')
               {
                 var results = [];
                 var maxPts = 0;
-                Element.select(e,"result > results entry").each(function(entry){
+                $A(result.results).each(function(entry){
                   var fields = ["ranking","title","author","points"];
                   var o = {};
                   fields.each(function(field){
-                    if ( Element.down(entry,field) )
+                    if ( field in entry )
                     {
-                      var s = Element.down(entry,field).innerHTML;
-                      o[field] = s;
+                      var s = entry[field];
+                      o[field] = (s + "").escapeHTML();
                     }
                   },this);
                   maxPts = Math.max( maxPts, parseInt(o["points"],10) );
                   results.push(o);
                 },this);
-                
+
                 var sec = this.insertSlide({"class":"prizegivingSlide prizinator"});
                 sec.insert( new Element("div",{"class":"eventName"}).update(compoName) );
                 var cont = sec.down("div.container");
@@ -344,28 +352,28 @@ var WuhuSlideSystem = Class.create({
               }
               else
               {
-                Element.select(e,"result > results entry").each(function(entry){
+                $A(result.results).each(function(entry){
                   var sec = this.insertSlide({"class":"prizegivingSlide entry"});
                   sec.insert( new Element("div",{"class":"eventName"}).update(compoName) );
                   var cont = sec.down("div.container");
                   var fields = ["ranking","title","author","points"];
                   fields.each(function(field){
-                    if ( Element.down(entry,field) )
+                    if ( field in entry )
                     {
-                      var s = Element.down(entry,field).innerHTML;
+                      var s = (entry[field] + "").escapeHTML();
                       if (field == "points") s += (s == 1) ? " pt" : " pts";
                       cont.insert( new Element("div",{"class":field}).update( s ) );
                     }
                   },this);
-  
+
                 },this);
               }
 
             } break;
         }
-        Reveal.initialize( this.revealOptions );
+        Reveal.sync();
         Reveal.slide( 0 );
-        Reveal.pauseAutoSlide();
+        Reveal.toggleAutoSlide(false);
         $$('.reveal .slides > section').each((function(item){
           item.setAttribute("data-transition",this.options.defaultTransition);
         }).bind(this));
@@ -390,7 +398,7 @@ var WuhuSlideSystem = Class.create({
       countdownOverlay: true,
       transitions: "cube/page/concave/zoom/linear/fade",
       defaultTransition: "cube",
-      newPrizegiving: false,
+      prizegivingStyle: 'bars',
     };
     Object.extend(this.options, opt || {} );
 
@@ -431,93 +439,92 @@ var WuhuSlideSystem = Class.create({
       dependencies: []
     };
 
-
-    if (this.slideMode == this.MODE_ROTATION)
-      this.fetchSlideRotation();
-    else
-      this.fetchSlideEvents();
-
-    var wuhu = this;
-    new PeriodicalExecuter((function(pe) {
+    Reveal.initialize( this.revealOptions ).then((() => {
       if (this.slideMode == this.MODE_ROTATION)
-      {
         this.fetchSlideRotation();
-      }
-    }).bind(this), 60);
-    new PeriodicalExecuter((function(pe) {
-      //if (this.slideMode == this.MODE_EVENT)
-        this.updateCountdownTimer();
-      this.reLayout();
-    }).bind(this), 0.5);
-    document.observe("keyup",(function(ev){
-      if (ev.keyCode == ' '.charCodeAt(0))
-      {
-        this.slideMode = this.MODE_EVENT;
+      else
         this.fetchSlideEvents();
-        ev.stop();
-      }
-      if (ev.keyCode == 'S'.charCodeAt(0))
-      {
-        this.slideMode = this.MODE_ROTATION;
-        this.deleteAllSlides();
-        this.fetchSlideRotation();
-        ev.stop();
-      }
-      if (ev.keyCode == 'P'.charCodeAt(0))
-      {
-        if (!Reveal.autoSlidePaused)
-          Reveal.pauseAutoSlide();
-        else
-          Reveal.resumeAutoSlide();
-      }
-      if (ev.keyCode == 'T'.charCodeAt(0))
-      {
-        this.reloadStylesheets();
-        ev.stop();
-      }
-      if ($$(".countdownTimer").length)
-      {
-        if (ev.keyCode == Event.KEY_DOWN)
+
+      var wuhu = this;
+      new PeriodicalExecuter((function(pe) {
+        if (this.slideMode == this.MODE_ROTATION && Reveal.isAutoSliding())
         {
-          this.countdownTimeStamp -= 60 * 1000;
-          this.updateCountdownTimer();
-          ev.stop();
-          return;
+          this.fetchSlideRotation();
         }
-        if (ev.keyCode == Event.KEY_UP)
+      }).bind(this), 60);
+      new PeriodicalExecuter((function(pe) {
+        //if (this.slideMode == this.MODE_EVENT)
+          this.updateCountdownTimer();
+        this.reLayout();
+      }).bind(this), 0.5);
+      document.observe("keyup",(function(ev){
+        if (ev.keyCode == ' '.charCodeAt(0))
         {
-          this.countdownTimeStamp += 60 * 1000;
-          this.updateCountdownTimer();
+          this.slideMode = this.MODE_EVENT;
+          this.fetchSlideEvents();
           ev.stop();
-          return;
         }
-      }
+        if (ev.keyCode == 'S'.charCodeAt(0))
+        {
+          this.slideMode = this.MODE_ROTATION;
+          this.saveCountdownSlideForPIP(); // do this BEFORE deleting!
+          this.deleteAllSlides();
+          this.fetchSlideRotation();
+          ev.stop();
+        }
+        if (ev.keyCode == 'P'.charCodeAt(0))
+        {
+          Reveal.toggleAutoSlide();
+        }
+        if (ev.keyCode == 'T'.charCodeAt(0))
+        {
+          this.reloadStylesheets();
+          ev.stop();
+        }
+        if ($$(".countdownTimer").length)
+        {
+          if (ev.keyCode == Event.KEY_DOWN)
+          {
+            this.countdownTimeStamp -= 60 * 1000;
+            this.updateCountdownTimer();
+            ev.stop();
+            return;
+          }
+          if (ev.keyCode == Event.KEY_UP)
+          {
+            this.countdownTimeStamp += 60 * 1000;
+            this.updateCountdownTimer();
+            ev.stop();
+            return;
+          }
+        }
 
-      // default reveal stuff we disabled
-      switch( ev.keyCode ) {
-        case Event.KEY_PAGEUP: 
-        case Event.KEY_LEFT: { if (this.prizinator && !Reveal.isFirstSlide()) { if(this.prizinator.previous()) break; } Reveal.navigateLeft(); ev.stop(); } break;
-        case Event.KEY_PAGEDOWN: 
-        case Event.KEY_RIGHT: { if (this.prizinator && !Reveal.isFirstSlide()) { if(this.prizinator.next()) break; } Reveal.navigateRight(); ev.stop(); } break;
-        case Event.KEY_HOME: Reveal.slide( 0 ); ev.stop(); break;
-        case Event.KEY_END: Reveal.slide( $$('.reveal .slides>section').length - 1 ); ev.stop(); break;
-        case Event.KEY_ESC: { ev.stop(); Reveal.toggleOverview(); } break;
-        case Event.KEY_RETURN: { ev.stop(); if (Reveal.isOverview()) Reveal.toggleOverview(); } break;
-      }
+        // default reveal stuff we disabled
+        switch( ev.keyCode ) {
+          case Event.KEY_PAGEUP:
+          case Event.KEY_LEFT: { if (this.prizinator && !Reveal.isFirstSlide()) { if(this.prizinator.previous()) break; } Reveal.navigateLeft(); ev.stop(); } break;
+          case Event.KEY_PAGEDOWN:
+          case Event.KEY_RIGHT: { if (this.prizinator && !Reveal.isFirstSlide()) { if(this.prizinator.next()) break; } Reveal.navigateRight(); ev.stop(); } break;
+          case Event.KEY_HOME: Reveal.slide( 0 ); ev.stop(); break;
+          case Event.KEY_END: Reveal.slide( $$('.reveal .slides>section').length - 1 ); ev.stop(); break;
+          case Event.KEY_ESC: { ev.stop(); Reveal.toggleOverview(); } break;
+          case Event.KEY_RETURN: { ev.stop(); if (Reveal.isOverview()) Reveal.toggleOverview(); } break;
+        }
 
+      }).bind(this));
+
+      document.observe("slidechanged",(function(ev){
+        setTimeout((function(){
+          this.regenerateTransitions();
+        }).bind(this),this.revealOptions.autoSlide / 2);
+        $$('.reveal .slides>section.rotationSlide').each(function(item){
+          var video = ev.currentSlide.down("video");
+          if (video) video.play();
+        });
+        this.reLayout();
+      }).bind(this));
+      Event.observe(window, 'resize', (function() { this.reLayout(); }).bind(this));
     }).bind(this));
-
-    document.observe("slidechanged",(function(ev){
-      setTimeout((function(){
-        this.regenerateTransitions();
-      }).bind(this),this.revealOptions.autoSlide / 2);
-      $$('.reveal .slides>section.rotationSlide').each(function(item){
-        var video = ev.currentSlide.down("video");
-        if (video) video.play();
-      });
-      this.reLayout();
-    }).bind(this));
-    Event.observe(window, 'resize', (function() { this.reLayout(); }).bind(this));
   },
 });
 

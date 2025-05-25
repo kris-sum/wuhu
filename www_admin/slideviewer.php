@@ -1,7 +1,7 @@
 <?php
 include_once("header.inc.php");
 
-if ($_GET["saveDimensions"])
+if (@$_GET["saveDimensions"])
 {
   update_setting("slideviewer_x",$_POST["width"]);
   update_setting("slideviewer_y",$_POST["height"]);
@@ -10,7 +10,7 @@ if ($_GET["saveDimensions"])
 
 <h2>Open slideviewer</h2>
 
-<?php if (file_exists("result.xml")): ?>
+<?php if (file_exists("beamer.data")){ ?>
 <form action="/slideviewer/" method="get" id="frm">
   <label>Native slide size:</label>
   <input type='number' name='width' value='<?=(get_setting("slideviewer_x") ?: "1920")?>' style='width: 70px'/> x
@@ -20,8 +20,8 @@ if ($_GET["saveDimensions"])
   <input type='checkbox' name='fullscreen' checked='checked'/>
 -->
   <label>Prizegiving display style:</label>
-  <div><input type='radio' name='newPrizegiving' value='true' checked='checked'/> New style (multiple entries are displayed on a single page with a bar displaying the score)</div>
-  <div><input type='radio' name='newPrizegiving' value='false'/> Old style (each entry gets it's own page)</div>
+  <div><input type='radio' name='prizegivingStyle' value='bars' checked='checked'/> New style (multiple entries are displayed on a single page with a bar displaying the score)</div>
+  <div><input type='radio' name='prizegivingStyle' value='pages'/> Old style (each entry gets it's own page)</div>
 
 
   <input type="submit" value='Open viewer' style='display:block;margin-top:20px;'/>
@@ -40,12 +40,13 @@ if ($_GET["saveDimensions"])
 <li>UP ARROW - plus one minute in countdown mode</li>
 <li>DOWN ARROW - minus one minute in countdown mode</li>
 <li>S - partyslide rotation mode</li>
+<li>P - pause / unpause partyslide rotation</li>
 <li>T - reload stylesheet without changing the slide</li>
-<li>SPACE - re-read result.xml (and quit partyslide mode)</li>
+<li>SPACE - re-read beamer.data (and quit partyslide mode)</li>
 </ul>
-<?php else: ?>
+<?php }else{ ?>
   <p>You haven't set a slide mode yet; go <a href="beamer.php">here</a> to do so.</p>
-<?php endif; ?>
+<?php } ?>
 
 <script type="text/javascript">
 <!--

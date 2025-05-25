@@ -5,7 +5,8 @@ global $settings;
 function perform(&$msg)
 {
   global $settings;
-  if (!is_user_logged_in()) {
+  if (!is_user_logged_in()) 
+  {
     $msg = "You got logged out :(";
     return 0;
   }
@@ -13,7 +14,7 @@ function perform(&$msg)
   $meta = array("title","author","comment","orgacomment");
   foreach($meta as $m) $data[$m] = $_POST[$m];
   $data["id"] = $_POST["entryid"];
-  $data["compoID"] = $_POST["compo"];
+  $data["compoID"] = @$_POST["compo"];
   $data["userID"] = get_user_id();
   $data["localScreenshotFile"] = $_FILES['screenshot']['tmp_name'];
   $data["localFileName"] = $_FILES['entryfile']['tmp_name'];
@@ -26,55 +27,69 @@ function perform(&$msg)
   $msg = $out["error"];
   return 0;
 }
-if ($_POST["entryid"]) {
+if (@$_POST["entryid"]) 
+{
   $msg = "";
   $id = perform($msg);
-  if ($id) {
+  if ($id) 
+  {
     echo "<div class='success'>Update successful!</div>";
-  } else {
+  } 
+  else 
+  {
     echo "<div class='failure'>Error: ".$msg."</div>";
   }
 }
-if ($_GET["newUploadSuccess"])
+if (@$_GET["newUploadSuccess"])
 {
   echo "<div class='success'>Upload successful! Your entry number is <b>".(int)$_GET["id"]."</b>. If you want to edit some of the details, you can do it below.</div>";
 }
 
 global $page;
-if ($_GET["id"]) {
+if (@$_GET["id"]) 
+{
   $entry = SQLLib::selectRow(sprintf_esc("select * from compoentries where id=%d",$_GET["id"]));
   if ($entry->userid != $_SESSION["logindata"]->id)
+  {
     die("nice try.");
+  }
 
   $compo = get_compo($entry->compoid);
 
   $filedir = get_compoentry_dir_path( $entry );
   if (!$filedir)
+  {
     die("Unable to find compo entry dir!");
+  }
 
-  if ($_GET["select"]) {
+  if (@$_GET["select"]) 
+  {
     $lock = new OpLock();
     $fn = basename($_GET["select"]);
-    if (file_exists($filedir . $fn)) {
+    if (file_exists($filedir . $fn)) 
+    {
       $upload = array(
         "filename" => $fn,
       );
       SQLLib::UpdateRow("compoentries",$upload,"id=".(int)$_GET["id"]);
+      run_hook("editentries_selectfile",array("entryID"=>(int)$_GET["id"]));
       redirect( build_url($page,array("id"=>(int)$_GET["id"])) );
     }
   }
 
-  if ($_GET["delete"]) {
+  if (@$_GET["delete"]) 
+  {
     $lock = new OpLock();
     $fn = basename($_GET["delete"]);
-    if (file_exists($filedir . $fn)) {
+    if (file_exists($filedir . $fn)) 
+    {
       unlink($filedir . $fn);
       redirect( build_url($page,array("id"=>(int)$_GET["id"])) );
     }
   }
 
 ?>
-<form action="<?=build_url($page,array("id"=>(int)$_GET["id"])) ?>" method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data">
 <div id="entryform">
 <div class='formrow'>
   <label for="title">Product title:</label>
@@ -138,7 +153,9 @@ if ($_GET["id"]) {
 </div>
 </form>
 <?php
-} else {
+} 
+else 
+{
   $entries = SQLLib::selectRows(sprintf_esc("select * from compoentries where userid=%d",get_user_id()));
   echo "<div class='entrylist' id='editmyentries'>\n";
   global $entry;
@@ -151,7 +168,9 @@ if ($_GET["id"]) {
     printf("<div class='title'><b>%s</b> - %s</div>\n",_html($entry->title),_html($entry->author));
 
     if ($compo->uploadopen || $compo->updateopen)
+    {
       printf("<div class='editlink'><a href='%s&amp;id=%d'>Edit entry</a></div>",$_SERVER["REQUEST_URI"],$entry->id );
+    }
 
     run_hook("editentries_endrow",array("entry"=>$entry));
 

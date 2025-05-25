@@ -8,7 +8,7 @@ if (!$voter)
 
 $csrf = new CSRFProtect();
 
-if ($_POST["vote"])
+if (@$_POST["vote"])
 {
   $a = array();
   if ($csrf->ValidateToken())
@@ -28,7 +28,7 @@ if ($_POST["vote"])
     echo "<div class='failure'>Your CSRF token expired!</div>";
   }
 }
-if ($_GET["success"])
+if (@$_GET["success"])
 {
   echo "<div class='success'>Votes saved!</div>";
 }
@@ -43,7 +43,7 @@ $compos = SQLLib::selectRows( $query->GetQuery() );
 
 if ($compos)
 {
-  echo "<form id='votingform' action='".$_SERVER['REQUEST_URI']."' method='post' enctype='multipart/form-data'>\n";
+  echo "<form id='votingform' method='post' enctype='multipart/form-data'>\n";
   $csrf->PrintToken();
 
   foreach($compos as $compo)
@@ -66,7 +66,7 @@ if ($compos)
       foreach($entries as $entry)
       {
         echo "<div class='entry'>\n";
-        printf("<div class='screenshot'><a href='screenshot.php?id=%d' target='_blank'><img src='screenshot.php?id=%d&amp;show=thumb'/></a></div>\n",$entry->id,$entry->id);
+        printf("<div class='screenshot'><a href='screenshot.php?id=%d' target='_blank'><img src='screenshot.php?id=%d&amp;show=thumb' loading='lazy' alt='screenshot'/></a></div>\n",$entry->id,$entry->id);
 
         if($compo->showauthor)
           printf("<div class='title'><b>%s</b> - %s</div>\n",_html($entry->title),_html($entry->author));

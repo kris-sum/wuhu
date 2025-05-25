@@ -1,17 +1,18 @@
 <?php
 class OpLock
 {
+  public $lockFile;
   function __construct()
   {
-    $this->f = fopen(ADMIN_DIR . "/.oplock","wb");
-    flock($this->f,LOCK_EX);
-    fwrite($this->f,"open."); // this is to see if the lock gets stuck somewhere.
+    $this->lockFile = fopen(ADMIN_DIR . "/.oplock","wb");
+    flock($this->lockFile,LOCK_EX);
+    fwrite($this->lockFile,"open."); // this is to see if the lock gets stuck somewhere.
   }
   function __destruct()
   {
-    fwrite($this->f,"close.");
-    flock($this->f,LOCK_UN);
-    fclose($this->f);
+    fwrite($this->lockFile,"close.");
+    flock($this->lockFile,LOCK_UN);
+    fclose($this->lockFile);
   }
 };
 
@@ -20,6 +21,13 @@ function sanitize_filename( &$filename )
   $filename = preg_replace("/[^a-zA-Z0-9\._\-]+/","-",$filename);
   $filename = strtolower($filename);
   return true;
+}
+
+function sanitize_votekey( $votekey )
+{
+  return $votekey;
+  // todo later
+  //return preg_replace("/[^a-zA-Z0-9]+/","",$votekey);
 }
 
 function redirect( $uri = null )
@@ -37,12 +45,12 @@ function hashPassword( $pwd )
 
 function _html( $s )
 {
-  return htmlspecialchars( $s, ENT_QUOTES );
+  return htmlspecialchars( $s ?: "", ENT_QUOTES );
 }
 
 function _js( $s )
 {
-  return addcslashes( $s, "\x00..\x1f" );
+  return addcslashes( $s ?: "", "\x00..\x1f" );
 }
 /**
  * Multibyte capable wordwrap
@@ -148,7 +156,7 @@ function handleUploadedRelease( $dataArray, &$output )
 
   $entry = null;
   $id = null;
-  if ($dataArray["id"])
+  if (@$dataArray["id"])
   {
     // existing release
     $id = (int)$dataArray["id"];
@@ -160,7 +168,7 @@ function handleUploadedRelease( $dataArray, &$output )
     }
   }
   //if (!$entry && (!$dataArray["title"] || !$dataArray["author"]))
-  if (!$dataArray["title"] || !$dataArray["author"])
+  if (!@$dataArray["title"] || !@$dataArray["author"])
   {
     $output["error"] = "You have to specify a title and an author!";
     return false;
@@ -172,7 +180,7 @@ function handleUploadedRelease( $dataArray, &$output )
       $output["error"] = "You have to specify a file!";
       return false;
     }
-    if (!defined("ADMIN_PAGE") && !is_uploaded_file($dataArray["localFileName"]))
+    if (!defined("ADMIN_PAGE") && !is_uploaded_file(@$dataArray["localFileName"]))
     {
       $output["error"] = "You have to select a file!";
       return false;
@@ -180,7 +188,7 @@ function handleUploadedRelease( $dataArray, &$output )
   }
 
   run_hook("admin_common_handleupload_beforecompocheck",array("dataArray"=>$dataArray,"output"=>&$output));
-  if ($output["error"])
+  if (@$output["error"])
   {
     return false;
   }
@@ -190,7 +198,7 @@ function handleUploadedRelease( $dataArray, &$output )
   {
     $compo = SQLLib::selectRow(sprintf_esc("select * from compos where id=%d",$entry->compoid));
   }
-  else if ($dataArray["compoID"])
+  else if (@$dataArray["compoID"])
   {
     $compo = SQLLib::selectRow(sprintf_esc("select * from compos where id=%d",$dataArray["compoID"]));
   }
@@ -200,7 +208,7 @@ function handleUploadedRelease( $dataArray, &$output )
     return false;
   }
 
-  if ($dataArray["userID"])
+  if (@$dataArray["userID"])
   {
     // not a superuser upload: more checks
     if ($entry)
@@ -245,7 +253,7 @@ function handleUploadedRelease( $dataArray, &$output )
       $sqldata[$v] = $dataArray[$v];
 
   // we already checked upload validity above - for admin interfaces, this check is disabled
-  if ($dataArray["localFileName"] && file_exists($dataArray["localFileName"]))
+  if (@$dataArray["localFileName"] && file_exists($dataArray["localFileName"]))
   {
     global $filenameBase;
     $filenameBase = $dataArray["originalFileName"];
@@ -274,11 +282,6 @@ function handleUploadedRelease( $dataArray, &$output )
   }
 
   run_hook("admin_common_handleupload_beforedb",array("sqlData"=>&$sqldata,"output"=>&$output));
-  if ($hookError)
-  {
-    $output["error"] = $hookError;
-    return false;
-  }
 
   if ($id)
   {
@@ -295,7 +298,8 @@ function handleUploadedRelease( $dataArray, &$output )
   }
   run_hook("admin_common_handleupload_afterdb",array("entryID"=>$id));
 
-  if (is_uploaded_file($dataArray["localScreenshotFile"])) {
+  if (@$dataArray["localScreenshotFile"] && is_uploaded_file($dataArray["localScreenshotFile"]))
+  {
     list($width,$height,$type) = getimagesize($dataArray["localScreenshotFile"]);
     if ($type==IMAGETYPE_GIF ||
         $type==IMAGETYPE_PNG ||
@@ -321,6 +325,119 @@ function handleUploadedRelease( $dataArray, &$output )
   return true;
 }
 
+function export_compo( $compo )
+{
+  global $settings;
+  
+  if (!@$settings["public_ftp_dir"])
+  {
+    printf("<div class='error'>Export dir is empty!</div>\n");
+    return false;
+  }
+  
+  $lock = new OpLock(); // is this needed? probably not but it can't hurt
+  
+  $query = new SQLSelect();
+  $query->AddTable("compoentries");
+  $query->AddWhere(sprintf_esc("compoid=%d",$compo->id));
+  $query->AddOrder("playingorder");
+  run_hook("admin_compo_entrylist_export_dbquery",array("query"=>&$query));
+  $entries = SQLLib::selectRows( $query->GetQuery() );
+  
+  if (!$entries)
+  {
+    printf("<div class='warning'>No valid entries for %s compo!</div>\n",_html($compo->name));
+    return false;
+  }
+
+  @mkdir( get_compo_dir_public( $compo ) );
+  @chmod( get_compo_dir_public( $compo ), 0777 );
+
+  foreach ($entries as $entry)
+  {
+    $oldPath = get_compoentry_file_path($entry);
+    $newPath = get_compo_dir_public( $compo ) . basename($oldPath);
+
+    if (!file_exists($newPath))
+    {
+      copy($oldPath,$newPath);
+      printf("<div class='success'>%s exported</div>\n",basename($oldPath));
+    }
+    else
+    {
+      printf("<div class='warning'>%s already exists!</div>\n",basename($newPath));
+    }
+  }
+  $lock = null;
+  
+  return true;
+}
+
+function generate_results(&$voter, $compoID = false, $skip_empty_compos = false)
+{
+  $voter = SpawnVotingSystem();
+  if (!$voter) die("VOTING SYSTEM ERROR");
+
+  $output = array();
+  if ($compoID === false)
+  {
+    $compos = SQLLib::selectRows("select * from compos order by start,id");
+  }
+  else
+  {
+    $compos = SQLLib::selectRows(sprintf_esc("select * from compos where id = %d",$compoID));
+  }
+  foreach($compos as $compo)
+  {
+    $query = new SQLSelect();
+    $query->AddTable("compoentries");
+    $query->AddWhere(sprintf_esc("compoid=%d",$compo->id));
+    $query->AddOrder("playingorder");
+    run_hook("admin_results_dbquery",array("query"=>&$query));
+    $entries = SQLLib::selectRows( $query->GetQuery() );
+    if (!$entries && $skip_empty_compos)
+    {
+      continue;
+    }
+
+    $rawResults = array();
+    $rawResults = $voter->CreateResultsFromVotes( $compo, $entries );
+    run_hook("voting_resultscreated_presort",array("results"=>&$rawResults));
+    arsort($rawResults);
+    
+    $lastPoints = -1;
+    $visibleRank = 1;
+    $itemisedRank = 1;
+    $results = array();
+    foreach($rawResults as $entryID=>$points)
+    {
+      $entry = SQLLib::selectRow(sprintf_esc("select * from compoentries where id = %d",$entryID));
+      if ((int)$lastPoints != (int)$points)
+      {
+        $visibleRank = $itemisedRank;
+      }
+      $results[] = array(
+        "id" => (int)$entry->id,
+        "ranking" => (int)$visibleRank,
+        "order" => (int)$entry->playingorder,
+        "title" => $entry->title,
+        "author" => $entry->author,
+        "points" => (int)$points,
+      );
+      
+      $lastPoints = $points;
+      $itemisedRank++;
+    }
+    
+    $output[] = array(
+      "id" => (int)$compo->id,
+      "name" => $compo->name,
+      "results" => $results,
+    );
+  }
+  return array("compos"=>$output);
+}
+
 ///////////////////////////////////////////////////////////
 // "plugin api" stuff
 
@@ -340,21 +457,37 @@ function get_compo($id)
     _cache_compos();
 
   //$compo = SQLLib::selectRow(sprintf_esc("select * from compos where id = %d",$_GET["id"]));
-  return $_COMPOCACHE[$id];
+  return @$_COMPOCACHE[$id];
 }
 
 function get_compos()
 {
+  global $_COMPOCACHE;
+  if (!$_COMPOCACHE)
+    _cache_compos();
+
   return $_COMPOCACHE;
 }
 
+function start_wuhu_session()
+{
+  if (session_status() != PHP_SESSION_ACTIVE)
+  {
+    $lifetime = 60 * 60 * 24 * 4;
+    @ini_set('session.cookie_lifetime', $lifetime);
+    session_set_cookie_params($lifetime);
+    session_name("WUHU_SESSION");
+    @session_start();
+  }
+}
+
 function is_user_logged_in() {
-  return ($_SESSION["logindata"] && !!$_SESSION["logindata"]->id);
+  return (@$_SESSION["logindata"] && !!@$_SESSION["logindata"]->id);
 }
 
 function get_user_id()
 {
-  return (int)$_SESSION["logindata"]->id;
+  return (int)(@$_SESSION["logindata"] ? $_SESSION["logindata"]->id : 0);
 }
 
 function get_current_user_data()
@@ -453,14 +586,14 @@ function get_compoentry_screenshot_path( $entryID )
 {
   global $settings;
   $a = glob( get_screenshot_path() . (int)$entryID . ".*" );
-  return $a[0];
+  return $a ? $a[0] : false;
 }
 
 function get_compoentry_screenshot_thumb_path( $entryID )
 {
   global $settings;
   $a = glob( get_screenshot_thumb_path() . (int)$entryID . ".*" );
-  return $a[0];
+  return $a ? $a[0] : false;
 }
 
 

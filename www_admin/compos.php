@@ -1,16 +1,19 @@
 <?php
 include_once("bootstrap.inc.php");
 
-if ($_GET['change']) {
+if (@$_GET['change']) 
+{
   SQLLib::Query(sprintf_esc("update compos set %s=1-%s where id=%d",$_GET['change'],$_GET['change'],$_GET['id']));
   redirect("compos.php");
 }
-if ($_GET['shiftallcompos']) {
+if (@$_GET['shiftallcompos']) 
+{
   $sql = sprintf_esc("update compos set start=%s(start,INTERVAL %d MINUTE)",((int)$_GET['shiftallcompos'] < 0 ? "date_sub" : "date_add"),(int)abs($_GET['shiftallcompos']));
   SQLLib::Query($sql);
   redirect("compos.php");
 }
-if ($_GET['shiftcompo'] && $_GET["shiftid"]) {
+if (@$_GET['shiftcompo'] && @$_GET["shiftid"]) 
+{
   $sql = sprintf_esc("update compos set start=%s(start,'00:%02d:00') where id = %d",
     ((int)$_GET['shiftcompo'] < 0 ? "subtime" : "addtime"),(int)abs($_GET['shiftcompo']),$_GET["shiftid"]);
   //var_dump($sql);
@@ -26,16 +29,27 @@ $checkboxen = array(
   "updateopen"=>"Compo open for updating entries",
 );
 
-if ($_POST["delete"]) {
+if (@$_POST["submit"] == "Export!")
+{
+  foreach(get_compos() as $compo)
+  {
+    export_compo( $compo );
+  }
+}
+
+if (@$_POST["delete"]) 
+{
   SQLLib::Query(sprintf_esc("delete from compos where id=%d",$_POST["id"]));
   SQLLib::Query(sprintf_esc("delete from compoentries where compoid=%d",$_POST["id"]));
 
   // TODO: delete directory, etc.
 
-} else {
-  if ($_POST["name"] && $_POST["dirname"])
+} 
+else 
+{
+  if (@$_POST["name"] && @$_POST["dirname"])
   {
-    if ($_POST["id"])
+    if (@$_POST["id"])
     {
       $data = array(
         "name" => $_POST["name"],
@@ -43,7 +57,7 @@ if ($_POST["delete"]) {
         "dirname" => $_POST["dirname"],
       );
       foreach($checkboxen as $k=>$v)
-        $data[$k] = (int)($_POST[$k] == "on");
+        $data[$k] = (int)(@$_POST[$k] == "on");
       run_hook("admin_compos_edit_update",array("data"=>&$data));
       SQLLib::UpdateRow("compos",$data,"id=".(int)$_POST["id"]);
     }
@@ -72,7 +86,7 @@ if ($_POST["delete"]) {
     }
   }
 }
-if ($_GET['id'])
+if (@$_GET['id'])
 {
   $compo = SQLLib::selectRow(sprintf_esc("select * from compos where id=%d",(int)$_GET['id']));
 ?>
@@ -80,7 +94,7 @@ if ($_GET['id'])
 <table class="minuswiki">
 <tr>
   <td>Compo name:</td>
-  <td><input id="componame" name="name" type="text" value="<?=htmlspecialchars($compo->name)?>"/></td>
+  <td><input id="componame" name="name" type="text" value="<?=_html($compo->name)?>"/></td>
 </tr>
 <tr>
   <td>Compo start:</td>
@@ -99,7 +113,7 @@ if ($_GET['id'])
 </tr>
 <tr>
   <td>Directory name:</td>
-  <td><input id="dirname" name="dirname" type="text" value="<?=htmlspecialchars($compo->dirname)?>"/></td>
+  <td><input id="dirname" name="dirname" type="text" value="<?=_html($compo->dirname)?>"/></td>
 </tr>
 <?php
 foreach($checkboxen as $k=>$v)
@@ -139,7 +153,7 @@ document.observe("dom:loaded",function(){
 </script>
 <?php
 }
-else if ($_GET["new"]=="add")
+else if (@$_GET["new"]=="add")
 {
 ?>
 <form action="compos.php" method="post" id='addnewcompo'>
@@ -262,6 +276,15 @@ else
   printf("<tr><td colspan='10'><a href='compos.php?new=add'>add new compos</a></td></tr>\n");
   echo "</table>\n";
 }
+?>
+<form method="post" enctype="multipart/form-data">
+  <h2>Export all compos to export directory</h2>
+  <div>
+    <input type="submit" name="submit" value="Export!" />
+  </div>
+  <small>(Note: whether this is publicly visible or not depends on how you set your server up! The directory is <b><?=_html($settings["public_ftp_dir"])?></b>)</small>
+</form>
+<?php
 include_once("footer.inc.php");
 
 ?>
