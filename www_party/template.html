@@ -18,11 +18,13 @@
     *{font-family:sans-serif}
     #menu ul li{display:inline-block;padding:5px 10px}
     #menu ul li hr{display:none}
-    label{margin:5px;display:block}
-    #livevoteContainer .votes{list-style:none;padding-left:20px}
-    #livevoteContainer .votes .vote{display:inline-block;box-sizing:border-box;width:32px;height:32px;padding:5px;text-align:center;margin:3px;background:#eee;cursor:pointer}
-    #livevoteContainer .votes .vote.selected{background:#aea}
-    #livevoteContainer .votes .vote.loading{outline:red 1px solid}
+    a{color:#C1343D;text-decoration:none}
+    a:hover{color:#888}
+    #content{width:800px;margin:20px auto}
+    input[type=text],input[type=password],textarea,select{padding:5px 8px;min-width:400px}
+    input[type=submit]{min-width:120px;padding:2px;margin-top:10px;background:#C1343D;color:white;border:0;border-radius:5px}
+    textarea{min-height:150px}
+    label{margin:5px 0px;display:block}
     @media screen and (max-device-width : 900px) {
     #container{width:100%;margin:0}
     }
