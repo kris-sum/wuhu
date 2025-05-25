@@ -7,7 +7,8 @@ include_once(ADMIN_DIR . "/thumbnail.inc.php");
 function perform(&$msg)
 {
   global $settings;
-  if (!is_user_logged_in()) {
+  if (!is_user_logged_in()) 
+  {
     $msg = "You got logged out :(";
     return 0;
   }
@@ -24,16 +25,20 @@ function perform(&$msg)
     return $out["entryID"];
   }
 
-  $msg = $out["error"];
+  $msg = $out["error"] ?? "Unknown error";
   return 0;
 }
-if ($_POST) {
+if ($_POST) 
+{
   $msg = "";
   $id = perform($msg);
-  if ($id) {
+  if ($id) 
+  {
     redirect( build_url("EditEntries",array("id"=>(int)$id,"newUploadSuccess"=>time())) );
-  } else {
-    echo "<div class='failure'>".$msg."</div>";
+  } 
+  else 
+  {
+    echo "<div class='failure'>".($msg ?? "There was an error!")."</div>";
   }
 }
 
@@ -41,7 +46,7 @@ $s = SQLLib::selectRows("select * from compos where uploadopen>0 order by start"
 if ($s) {
 global $page;
 ?>
-<form action="<?=$_SERVER["REQUEST_URI"]?>" method="post" enctype="multipart/form-data" id='uploadEntryForm'>
+<form method="post" enctype="multipart/form-data" id='uploadEntryForm'>
 <div id="entryform">
 <div class='formrow'>
   <label for='compo'>Compo:</label>
@@ -49,25 +54,25 @@ global $page;
     <option value=''>-- Please select a compo:</option>
 <?php
 foreach($s as $t)
-  printf("  <option value='%d'%s>%s</option>\n",$t->id,$t->id==$_POST["compo"] ? ' selected="selected"' : "",$t->name);
+  printf("  <option value='%d'%s>%s</option>\n",$t->id,$t->id==@$_POST["compo"] ? ' selected="selected"' : "",$t->name);
 ?>
   </select>
 </div>
 <div class='formrow'>
   <label for='title'>Product title:</label>
-  <input id='title' name="title" type="text" value="<?=_html($_POST["title"])?>" required='yes'/>
+  <input id='title' name="title" type="text" value="<?=_html(@$_POST["title"])?>" required='yes'/>
 </div>
 <div class='formrow'>
   <label for='author'>Author:</label>
-  <input id='author' name="author" type="text" value="<?=_html($_POST["author"])?>"/>
+  <input id='author' name="author" type="text" value="<?=_html(@$_POST["author"])?>"/>
 </div>
 <div class='formrow'>
   <label for="comment">Comment: <small>(this will be shown on the compo slide)</small></label>
-  <textarea name="comment"><?=_html($_POST["comment"])?></textarea>
+  <textarea name="comment"><?=_html(@$_POST["comment"])?></textarea>
 </div>
 <div class='formrow'>
   <label for='orgacomment'>Comment for the organizers: <small>(this will NOT be shown anywhere)</small></label>
-  <textarea name="orgacomment" id="orgacomment"><?=_html($_POST["orgacomment"])?></textarea>
+  <textarea name="orgacomment" id="orgacomment"><?=_html(@$_POST["orgacomment"])?></textarea>
 </div>
 <div class='formrow'>
   <label for='entryfile'>Uploaded file:

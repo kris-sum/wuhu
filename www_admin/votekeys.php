@@ -1,17 +1,17 @@
 <?php
-include_once("header.inc.php");
+include_once("bootstrap.inc.php");
 
-if ($_POST["votekeys_format"])
+if (@$_POST["votekeys_format"])
 {
   update_setting("votekeys_format",$_POST["votekeys_format"]);
   redirect();
 }
-if ($_POST["votekeys_css"])
+if (@$_POST["votekeys_css"])
 {
   update_setting("votekeys_css",$_POST["votekeys_css"]);
   redirect();
 }
-if ($_POST["amount"])
+if (@$_POST["amount"])
 {
   if ($_POST["mode"] == "reset")
   {
@@ -27,11 +27,11 @@ if ($_POST["amount"])
       $str .= $abc[ array_rand($abc) ];
 
     $hash = strtoupper($_POST["prefix"].$str);
-    SQLLib::InsertRow("votekeys",array("votekey"=>$hash));
+    SQLLib::InsertRow("votekeys",array("votekey"=>sanitize_votekey($hash)));
   }
   redirect();
 }
-if ($_POST["mode"] && is_uploaded_file($_FILES["votekeyfile"]["tmp_name"]))
+if (@$_POST["mode"] && is_uploaded_file($_FILES["votekeyfile"]["tmp_name"]))
 {
   if ($_POST["mode"] == "reset")
   {
@@ -47,13 +47,14 @@ if ($_POST["mode"] && is_uploaded_file($_FILES["votekeyfile"]["tmp_name"]))
     if ($v)
     {
       try{
-        SQLLib::InsertRow("votekeys",array("votekey"=>$v));
+        SQLLib::InsertRow("votekeys",array("votekey"=>sanitize_votekey($v)));
       } catch(Exception $e) {}
     }
   }
   redirect();
 }
 
+include_once("header.inc.php");
 ?>
 <h2>Votekeys</h2>
 <h3>Print votekeys</h3>
@@ -61,9 +62,9 @@ if ($_POST["mode"] && is_uploaded_file($_FILES["votekeyfile"]["tmp_name"]))
 
 <form action="votekeys.php" method="post" enctype="multipart/form-data" id='votekeys_print'>
   <label>Votekey format (HTML, <b>{%VOTEKEY%}</b> will be substituted):</label>
-  <textarea name="votekeys_format"><?=_html($settings["votekeys_format"] ?: "{%VOTEKEY%}")?></textarea>
+  <textarea name="votekeys_format"><?=_html(@$settings["votekeys_format"] ?: "{%VOTEKEY%}")?></textarea>
   <label>Additional print CSS:</label>
-  <textarea name="votekeys_css"><?=_html($settings["votekeys_css"] ?: "")?></textarea>
+  <textarea name="votekeys_css"><?=_html(@$settings["votekeys_css"] ?: "")?></textarea>
   <input type="submit" value="Save"/>
 </form>
 
@@ -89,6 +90,10 @@ if ($_POST["mode"] && is_uploaded_file($_FILES["votekeyfile"]["tmp_name"]))
   </div>
   <input type="submit" value="Upload!"/>
 </form>
+
+<h3>Export votekeys</h3>
+<p>Text format: <a href='votekeys_text.php'>view</a> / <a href='votekeys_text.php?filename=votekeys.txt'>download</a></p>
+<p>JSON format: <a href='votekeys_text.php?format=json'>view</a> / <a href='votekeys_text.php?format=json&amp;filename=votekeys.json'>download</a></p>
 <h3>Current votekeys</h3>
 <?php
 printf("<table class='minuswiki' id='votekeys'>");

@@ -43,13 +43,14 @@ function get_timetable_content_html( $forceBreak = -1, $skipElapsed = false )
   $counter = 0;
   
   $rows = get_timetable_content();
-  
+
+  $content = "";
   foreach($rows as $v)
   {
-    if ($skipElapsed)
+    $elapsed = $v->date < date("Y-m-d H:i:s");
+    if ($elapsed && $skipElapsed)
     {
-      if ($v->date < date("Y-m-d H:i:s"))
-        continue;
+      continue;
     }
     $day = date("l",strtotime($v->date));
 
@@ -79,7 +80,7 @@ function get_timetable_content_html( $forceBreak = -1, $skipElapsed = false )
       $lastdate = $effectiveDay;
     }
 
-    $content .= sprintf("<tr>\n");
+    $content .= sprintf("<tr%s>\n",$elapsed ? " class='elapsed'" : "");
 
     if ($lasttime == $v->date)
       $content .= sprintf("  <td class='timetabletime'>&nbsp;</td>\n");
@@ -89,7 +90,7 @@ function get_timetable_content_html( $forceBreak = -1, $skipElapsed = false )
     $lasttime = $v->date;
 
     $text = $v->event;
-    if ($v->link)
+    if (@$v->link)
     {
       if (strstr($v->link,"://")!==false)
         $text = sprintf("<a href='%s'>%s</a>",$v->link,$v->event);
@@ -97,7 +98,8 @@ function get_timetable_content_html( $forceBreak = -1, $skipElapsed = false )
         $text = sprintf("<a href='%s'>%s</a>",build_url($v->link),$v->event);
     }
 
-    switch ($v->type) {
+    switch (@$v->type) 
+    {
       case "mainevent": {
         $content .= sprintf("  <td class='timetableevent'><span class='timetable_eventtype_mainevent'>%s</span></td>\n",$text);
       } break;

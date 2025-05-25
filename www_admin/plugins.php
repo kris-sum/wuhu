@@ -8,10 +8,10 @@ if (!$oldActivePlugins) $oldActivePlugins = array();
 $activePlugins = $oldActivePlugins;
 
 $success = false;
-if ($_POST["submit"])
+if (@$_POST["submit"])
 {
   $activePlugins = array();
-  if($_POST["plugin"]) foreach($_POST["plugin"] as $dirname=>$on)
+  if(@$_POST["plugin"]) foreach($_POST["plugin"] as $dirname=>$on)
   {
     // this leaves room for future activity
     $activePlugins[$dirname] = array();
@@ -26,22 +26,25 @@ if ($_POST["submit"])
       run_hook( $dirname . "_activation" );
     }
   }
-  file_put_contents(PLUGINREGISTRY,serialize($activePlugins));
-  $success = true;
+  $success = @file_put_contents(PLUGINREGISTRY,serialize($activePlugins)) !== false;
 }
 
 include_once("header.inc.php");
 
 if (!is_writable(PLUGINREGISTRY))
 {
-  printf("<div class='error'>Please make sure %s is writable!</div>\n",htmlspecialchars(PLUGINREGISTRY));
+  printf("<div class='error'>Please make sure %s is writable!</div>\n",_html(PLUGINREGISTRY));
 }
 if ($success)
+{
   printf("<div class='success'>Plugins activated/deactivated</div>\n");
+}
 
-
+printf("<h2>Plugins</h2>\n");
+printf("<p>Look for more plugins <a href='https://github.com/topics/wuhu-plugin'>on Github</a>.</p>\n");
 printf("<form action='%s' method='post'>\n",$_SERVER["REQUEST_URI"]);
-printf("<ul id='pluginlist'>\n");
+printf("  <input type='submit' name='submit' value='Activate/Deactivate'>\n");
+printf("<table id='pluginlist'>\n");
 
 $files = array();
 $files = array_merge( $files, glob(ADMIN_DIR . "/plugins/*.php") );
@@ -69,15 +72,14 @@ foreach($files as $v)
     if(preg_match("/^Description: (.*)$/im",$data,$m))
       $pluginDescription = $m[1];
 
-    printf("<li>\n");
-    printf("  <h3>%s</h3>\n",htmlspecialchars($pluginName));
-    printf("  <input type='checkbox' name='plugin[%s]'%s>\n",htmlspecialchars($pluginDirName),$activePlugins[$pluginDirName] ? " checked='checked'" : "");
-    printf("  <span>%s</span>\n",htmlspecialchars($pluginDescription));
-    printf("</li>\n");
+    printf("<tr>\n");
+    printf("  <td class='checkbox'><input type='checkbox' name='plugin[%s]'%s></td>\n",_html($pluginDirName),@$activePlugins[$pluginDirName] ? " checked='checked'" : "");
+    printf("  <td onclick=\"this.parentNode.querySelector('input').checked = !this.parentNode.querySelector('input').checked\" class='name' style='cursor:pointer'>%s</td>\n",_html($pluginName));
+    printf("  <td class='description'>%s</td>\n",_html($pluginDescription));
+    printf("</tr>\n");
   }
 }
-
-printf("</ul>\n");
+printf("</table>\n");
 printf("  <input type='submit' name='submit' value='Activate/Deactivate'>\n");
 printf("</form>\n");
 

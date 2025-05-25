@@ -7,7 +7,7 @@ include_once("functions.inc.php");
 
 function oneliner_parsepost( $data )
 {
-  if ($_POST["onelinerText"] && is_user_logged_in())
+  if (@$_POST["onelinerText"] && is_user_logged_in())
   {
     $valid = true;
 
@@ -35,11 +35,6 @@ function oneliner_parsepost( $data )
 
 function oneliner_add_template_element( $data )
 {
-  if ($data["title"] != "News") {
-    //$TEMPLATE["{%ONELINER%}"] = "";
-    //return;
-  }
-
   $rows = SQLLib::selectRows(
     "select oneliner.datetime, users.nickname, oneliner.contents from oneliner ".
     "left join users on users.id = oneliner.userid order by datetime desc limit 10");
@@ -62,8 +57,8 @@ function oneliner_add_template_element( $data )
     if ($row)
     {
       $s .= "<form action='".$_SERVER["REQUEST_URI"]."' method='post' enctype='multipart/form-data'>\n";
-      $s .= "  <input type='text' name='onelinerText' class='form-control oneliner-input' />\n";
-      $s .= "  <input type='submit' value='Go!' class='btn btn-default oneliner-button' />\n";
+      $s .= "  <input type='text' name='onelinerText' class='oneliner-input' maxlength='64' />\n";
+      $s .= "  <input type='submit' value='Go!' class='oneliner-button' />\n";
       $s .= "</form>\n";
     } else {
       $s .= "<span class='not4u'>No releases, no oneliner!</span>\n";

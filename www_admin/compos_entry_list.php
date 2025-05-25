@@ -3,7 +3,7 @@ include_once("bootstrap.inc.php");
 
 loadPlugins();
 
-$compo = get_compo( $_GET["id"] );
+$compo = get_compo( @$_GET["id"] );
 
 function changeShowingNumber($entryID, $from, $to)
 {
@@ -22,7 +22,7 @@ function changeShowingNumber($entryID, $from, $to)
   SQLLib::Query(sprintf_esc("update compoentries set playingorder=%d where id=%d",$to,$s->id));
 }
 
-if ($_GET['direction'])
+if (@$_GET['direction'])
 {
   $lock = new OpLock();
   $s = SQLLib::selectRow(sprintf_esc("select * from compoentries where id = %d",$_GET["pid"]));
@@ -41,36 +41,9 @@ run_hook("admin_compo_entrylist_preheader");
 include_once("header.inc.php");
 printf("<h2>%s</h2>\n",$compo->name);
 
-if ($_POST["submit"] == "Export!")
+if (@$_POST["submit"] == "Export!")
 {
-  $lock = new OpLock(); // is this needed? probably not but it can't hurt
-
-  @mkdir( get_compo_dir_public( $compo ) );
-  @chmod( get_compo_dir_public( $compo ), 0777 );
-
-  $query = new SQLSelect();
-  $query->AddTable("compoentries");
-  $query->AddWhere(sprintf_esc("compoid=%d",$compo->id));
-  $query->AddOrder("playingorder");
-  run_hook("admin_compo_entrylist_export_dbquery",array("query"=>&$query));
-  $entries = SQLLib::selectRows( $query->GetQuery() );
-
-  foreach ($entries as $entry)
-  {
-    $oldPath = get_compoentry_file_path($entry);
-    $newPath = get_compo_dir_public( $compo ) . basename($oldPath);
-
-    if (!file_exists($newPath))
-    {
-      copy($oldPath,$newPath);
-      printf("<div class='success'>%s exported</div>\n",basename($oldPath));
-    }
-    else
-    {
-      printf("<div class='error'>%s already exists!</div>\n",basename($newPath));
-    }
-  }
-  $lock = null;
+  export_compo( $compo );
 }
 
 $entries = SQLLib::selectRows(sprintf_esc("select *,compoentries.id as id from compoentries ".
@@ -113,7 +86,7 @@ foreach($entries as $entry)
     printf("  <td><a href='users.php?id=%d'>%s</a></td>\n",$entry->userid,_html($entry->nickname));
   else
     printf("  <td>Admin superuser</td>\n");
-  printf("  <td>%s</td>\n",basename($entry->filename));
+  printf("  <td><a href='compos_entry_edit.php?download=%d'>%s</a></td>\n",$entry->id,basename($entry->filename));
   @printf("  <td>%s bytes</td>\n",number_format(filesize(get_compoentry_file_path($entry)),0));
   if ($compo->votingopen == 0)
   {
